@@ -19,7 +19,7 @@ import java.util.Observable;
 import java.util.Observer;
 
 public class MainActivity extends AppCompatActivity implements Observer {
-    static final String PCAPDROID_PACKAGE = "com.emanuelef.remote_capture.debug"; // add ".debug" for the debug build of PCAPdroid
+    static final String PCAPDROID_PACKAGE = "com.emanuelef.remote_capture"; // add ".debug" for the debug build of PCAPdroid
     static final String CAPTURE_CTRL_ACTIVITY = "com.emanuelef.remote_capture.activities.CaptureCtrl";
     static final String CAPTURE_STATUS_ACTION = "com.emanuelef.remote_capture.CaptureStatus";
     static final String TAG = "PCAP Receiver";
