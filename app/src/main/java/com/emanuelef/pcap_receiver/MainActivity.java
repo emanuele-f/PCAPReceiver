@@ -91,7 +91,7 @@ public class MainActivity extends AppCompatActivity implements Observer {
 
         Intent intent = new Intent(Intent.ACTION_VIEW);
         intent.setClassName(PCAPDROID_PACKAGE, CAPTURE_CTRL_ACTIVITY);
-        intent.putExtra("action", "status");
+        intent.putExtra("action", "get_status");
 
         captureStatusLauncher.launch(intent);
     }
