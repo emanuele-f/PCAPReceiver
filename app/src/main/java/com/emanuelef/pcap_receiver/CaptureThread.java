@@ -14,6 +14,7 @@ public class CaptureThread extends Thread {
     static final String TAG = "CaptureThread";
     static final ByteBuffer PCAP_HDR_BYTES = ByteBuffer.wrap(hex2bytes("d4c3b2a1020004000000000000000000ffff000065000000"));
     final MainActivity mActivity;
+    private DatagramSocket mSocket;
 
     public CaptureThread(MainActivity activity) {
         mActivity = activity;
@@ -33,13 +34,13 @@ public class CaptureThread extends Thread {
     public void run() {
         try {
             // Important: requires "android.permission.INTERNET"
-            DatagramSocket socket = new DatagramSocket(5123);
+            mSocket = new DatagramSocket(5123);
             byte[] buf = new byte[65535];
             DatagramPacket datagram = new DatagramPacket(buf, buf.length);
             Log.d(TAG, "running");
 
             while(true) {
-                socket.receive(datagram);
+                mSocket.receive(datagram);
                 int len = datagram.getLength();
                 ByteBuffer data = ByteBuffer.wrap(buf, 0, len);
 
@@ -60,6 +61,16 @@ public class CaptureThread extends Thread {
                 mActivity.runOnUiThread(() -> mActivity.onPacketReceived(pkt));
             }
         } catch (IOException | IllegalRawDataException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public void stopCapture() {
+        if(mSocket != null)
+            mSocket.close();
+        try {
+            join();
+        } catch (InterruptedException e) {
             e.printStackTrace();
         }
     }
