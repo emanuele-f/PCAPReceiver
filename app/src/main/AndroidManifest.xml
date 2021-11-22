@@ -20,6 +20,15 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <receiver android:name=".MyBroadcastReceiver"
+            android:enabled="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.emanuelef.remote_capture.CaptureStatus" />
+            </intent-filter>
+        </receiver>
+
     </application>
 
 </manifest>

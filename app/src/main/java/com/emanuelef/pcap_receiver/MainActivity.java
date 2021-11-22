@@ -15,9 +15,13 @@ import android.widget.Toast;
 
 import org.pcap4j.packet.IpV4Packet;
 
-public class MainActivity extends AppCompatActivity {
+import java.util.Observable;
+import java.util.Observer;
+
+public class MainActivity extends AppCompatActivity implements Observer {
     static final String PCAPDROID_PACKAGE = "com.emanuelef.remote_capture.debug"; // add ".debug" for the debug build of PCAPdroid
     static final String CAPTURE_CTRL_ACTIVITY = "com.emanuelef.remote_capture.activities.CaptureCtrl";
+    static final String CAPTURE_STATUS_ACTION = "com.emanuelef.remote_capture.CaptureStatus";
     static final String TAG = "PCAP Receiver";
     Button mStart;
     CaptureThread mCapThread;
@@ -49,12 +53,23 @@ public class MainActivity extends AppCompatActivity {
             setCaptureRunning(savedInstanceState.getBoolean("capture_running"));
         else
             queryCaptureStatus();
+
+        // will call the "update" method when the capture status changes
+        MyBroadcastReceiver.CaptureObservable.getInstance().addObserver(this);
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        MyBroadcastReceiver.CaptureObservable.getInstance().deleteObserver(this);
         stopCaptureThread();
+    }
+
+    @Override
+    public void update(Observable o, Object arg) {
+        boolean capture_running = (boolean)arg;
+        Log.d(TAG, "capture_running: " + capture_running);
+        setCaptureRunning(capture_running);
     }
 
     @Override
@@ -88,6 +103,7 @@ public class MainActivity extends AppCompatActivity {
         intent.setClassName(PCAPDROID_PACKAGE, CAPTURE_CTRL_ACTIVITY);
 
         intent.putExtra("action", "start");
+        intent.putExtra("broadcast_receiver", "com.emanuelef.pcap_receiver.MyBroadcastReceiver");
         intent.putExtra("pcap_dump_mode", "udp_exporter");
         intent.putExtra("collector_ip_address", "127.0.0.1");
         intent.putExtra("collector_port", "5123");
