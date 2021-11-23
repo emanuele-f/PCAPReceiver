@@ -6,6 +6,7 @@ import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 
+import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
@@ -93,7 +94,11 @@ public class MainActivity extends AppCompatActivity implements Observer {
         intent.setClassName(PCAPDROID_PACKAGE, CAPTURE_CTRL_ACTIVITY);
         intent.putExtra("action", "get_status");
 
-        captureStatusLauncher.launch(intent);
+        try {
+            captureStatusLauncher.launch(intent);
+        } catch (ActivityNotFoundException e) {
+            Toast.makeText(this, "PCAPdroid package not found: " + PCAPDROID_PACKAGE, Toast.LENGTH_LONG).show();
+        }
     }
 
     void startCapture() {
