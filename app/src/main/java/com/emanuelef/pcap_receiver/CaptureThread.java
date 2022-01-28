@@ -12,7 +12,8 @@ import java.nio.ByteBuffer;
 
 public class CaptureThread extends Thread {
     static final String TAG = "CaptureThread";
-    static final ByteBuffer PCAP_HDR_BYTES = ByteBuffer.wrap(hex2bytes("d4c3b2a1020004000000000000000000ffff000065000000"));
+    static final int PCAP_HDR_SIZE = 24;
+    static final ByteBuffer PCAP_HDR_START_BYTES = ByteBuffer.wrap(hex2bytes("d4c3b2a1020004000000000000000000"));
     final MainActivity mActivity;
     private DatagramSocket mSocket;
 
@@ -44,7 +45,7 @@ public class CaptureThread extends Thread {
                 int len = datagram.getLength();
                 ByteBuffer data = ByteBuffer.wrap(buf, 0, len);
 
-                if(data.equals(PCAP_HDR_BYTES)) {
+                if((len == PCAP_HDR_SIZE) && (ByteBuffer.wrap(buf, 0, PCAP_HDR_START_BYTES.capacity()).equals(PCAP_HDR_START_BYTES))) {
                     Log.d(TAG, "Detected PCAP header, skipping");
                     continue;
                 }
@@ -56,11 +57,15 @@ public class CaptureThread extends Thread {
                 }
 
                 // Skip the pcaprec_hdr_s record to get the IPv4 packet
-                IpV4Packet pkt = IpV4Packet.newPacket(buf, 16, len - 16);
-
-                mActivity.runOnUiThread(() -> mActivity.onPacketReceived(pkt));
+                try {
+                    IpV4Packet pkt = IpV4Packet.newPacket(buf, 16, len - 16);
+                    mActivity.runOnUiThread(() -> mActivity.onPacketReceived(pkt));
+                } catch (IllegalRawDataException e) {
+                    // Invalid packet
+                    e.printStackTrace();
+                }
             }
-        } catch (IOException | IllegalRawDataException e) {
+        } catch (IOException e) {
             e.printStackTrace();
         }
     }
