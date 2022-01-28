@@ -174,8 +174,13 @@ public class MainActivity extends AppCompatActivity implements Observer {
         if((result.getResultCode() == RESULT_OK) && (result.getData() != null)) {
             Intent intent = result.getData();
             boolean running = intent.getBooleanExtra("running", false);
+            int verCode = intent.getIntExtra("version_code", 0);
+            String verName = intent.getStringExtra("version_name");
 
-            Log.d(TAG, "PCAPdroid running: " + running);
+            if(verName == null)
+                verName = "<1.4.6";
+
+            Log.d(TAG, "PCAPdroid " + verName + "(" + verCode + "): running=" + running);
             setCaptureRunning(running);
         }
     }
