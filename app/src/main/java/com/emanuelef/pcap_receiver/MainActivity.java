@@ -166,6 +166,10 @@ public class MainActivity extends AppCompatActivity implements Observer {
             setCaptureRunning(false);
         } else
             Toast.makeText(this, "Could not stop capture", Toast.LENGTH_SHORT).show();
+
+        Intent intent = result.getData();
+        if((intent != null) && (intent.hasExtra("bytes_sent")))
+            logStats(intent);
     }
 
     void handleCaptureStatusResult(final ActivityResult result) {
@@ -183,5 +187,23 @@ public class MainActivity extends AppCompatActivity implements Observer {
             Log.d(TAG, "PCAPdroid " + verName + "(" + verCode + "): running=" + running);
             setCaptureRunning(running);
         }
+    }
+
+    void logStats(Intent intent) {
+        String stats = "*** Stats ***" +
+                "\nBytes sent: " +
+                intent.getLongExtra("bytes_sent", 0) +
+                "\nBytes received: " +
+                intent.getLongExtra("bytes_rcvd", 0) +
+                "\nPackets sent: " +
+                intent.getIntExtra("pkts_sent", 0) +
+                "\nPackets received: " +
+                intent.getIntExtra("pkts_rcvd", 0) +
+                "\nPackets dropped: " +
+                intent.getIntExtra("pkts_dropped", 0) +
+                "\nPCAP dump size: " +
+                intent.getLongExtra("bytes_dumped", 0);
+
+        Log.i("stats", stats);
     }
 }
