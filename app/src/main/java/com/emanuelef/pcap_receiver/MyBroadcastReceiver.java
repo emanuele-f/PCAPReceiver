@@ -8,6 +8,8 @@ import android.util.Log;
 import java.util.Observable;
 
 public class MyBroadcastReceiver extends BroadcastReceiver {
+    private static final String TAG = "MyBroadcastReceiver";
+
     public static class CaptureObservable extends Observable {
         private static CaptureObservable instance = new CaptureObservable();
         private CaptureObservable() {};
@@ -24,11 +26,13 @@ public class MyBroadcastReceiver extends BroadcastReceiver {
 
     @Override
     public void onReceive(Context context, Intent intent) {
-        Log.d("MyBroadcastReceiver", "onReceive " + intent.getAction());
+        String action = intent.getAction();
+        Log.d("MyBroadcastReceiver", "onReceive " + action);
 
-        if(intent.getAction().equals(MainActivity.CAPTURE_STATUS_ACTION)) {
+        if(action.equals(MainActivity.CAPTURE_STATUS_ACTION)) {
             // Notify via the CaptureObservable
-            CaptureObservable.getInstance().update(intent.getBooleanExtra("running", true));
+            boolean running = intent.getBooleanExtra("running", true);
+            CaptureObservable.getInstance().update(running);
         }
     }
 }

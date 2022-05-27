@@ -8,6 +8,7 @@ import org.pcap4j.packet.IpV4Packet;
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
+import java.net.SocketException;
 import java.nio.ByteBuffer;
 
 public class CaptureThread extends Thread {
@@ -66,7 +67,8 @@ public class CaptureThread extends Thread {
                 }
             }
         } catch (IOException e) {
-            e.printStackTrace();
+            if(!(e instanceof SocketException)) // raised when capture is stopped
+                e.printStackTrace();
         }
     }
 
