@@ -2,6 +2,7 @@ package com.emanuelef.pcap_receiver;
 
 import android.util.Log;
 
+import org.pcap4j.packet.EthernetPacket;
 import org.pcap4j.packet.IllegalRawDataException;
 import org.pcap4j.packet.IpV4Packet;
 
@@ -14,6 +15,7 @@ import java.nio.ByteBuffer;
 public class CaptureThread extends Thread {
     static final String TAG = "CaptureThread";
     static final int PCAP_HDR_SIZE = 24;
+    static final int PCAPREC_HDR_SIZE = 16;
     static final ByteBuffer PCAP_HDR_START_BYTES = ByteBuffer.wrap(hex2bytes("d4c3b2a1020004000000000000000000"));
     final MainActivity mActivity;
     private DatagramSocket mSocket;
@@ -52,14 +54,17 @@ public class CaptureThread extends Thread {
                 }
 
                 // struct pcaprec_hdr_s
-                if(len < 16) {
+                if(len < PCAPREC_HDR_SIZE) {
                     Log.w(TAG, "Invalid PCAP record: " + len);
                     continue;
                 }
 
-                // Skip the pcaprec_hdr_s record to get the IPv4 packet
+                // Skip the pcaprec_hdr_s record to get the IPv4 packet, wrapped in an Ethernet frame
+                // due to pcapdroid_trailer being set. If you don't set pcapdroid_trailer, you can
+                // directly parse the packet with IpV4Packet, see below
                 try {
-                    IpV4Packet pkt = IpV4Packet.newPacket(buf, 16, len - 16);
+                    EthernetPacket pkt = EthernetPacket.newPacket(buf, PCAPREC_HDR_SIZE, len - PCAPREC_HDR_SIZE);
+                    // IpV4Packet pkt = IpV4Packet.newPacket(buf, PCAPREC_HDR_SIZE, len - PCAPREC_HDR_SIZE);
                     mActivity.runOnUiThread(() -> mActivity.onPacketReceived(pkt));
                 } catch (IllegalRawDataException e) {
                     // Invalid packet
