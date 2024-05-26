@@ -14,8 +14,12 @@ import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import org.pcap4j.packet.EthernetPacket;
 import org.pcap4j.packet.IpV4Packet;
 
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.Observable;
 import java.util.Observer;
 
@@ -24,6 +28,10 @@ public class MainActivity extends AppCompatActivity implements Observer {
     static final String CAPTURE_CTRL_ACTIVITY = "com.emanuelef.remote_capture.activities.CaptureCtrl";
     static final String CAPTURE_STATUS_ACTION = "com.emanuelef.remote_capture.CaptureStatus";
     static final String TAG = "PCAP Receiver";
+    private static final int PCAPDROID_TRAILER_SIZE = 32;
+    private static final int PCAPDROID_MAGIC = 0x01072021;
+    private static final int FCS_SIZE = 4;
+
     Button mStart;
     CaptureThread mCapThread;
     TextView mLog;
@@ -79,12 +87,50 @@ public class MainActivity extends AppCompatActivity implements Observer {
         super.onSaveInstanceState(bundle);
     }
 
-    void onPacketReceived(IpV4Packet pkt) {
-        IpV4Packet.IpV4Header hdr = pkt.getHeader();
-        mLog.append(String.format("[%s] %s -> %s [%d B]\n",
-                hdr.getProtocol(),
-                hdr.getSrcAddr().getHostAddress(), hdr.getDstAddr().getHostAddress(),
-                pkt.length()));
+    /**
+     * Called when a packet is received from PCAPdroid.
+     *
+     * @param pkt The Ethernet packet received (if pcapdroid_trailer is set, the packet is wrapped in an Ethernet frame).
+     *            If pcapdroid_trailer is not set, the packet is an IpV4Packet, so the code can be simplified to:
+     *
+     *                void onPacketReceived(IpV4Packet pkt) {
+     *                  IpV4Packet.IpV4Header hdr = pkt.getHeader();
+     *                  // logging etc.
+     *                }
+     */
+    void onPacketReceived(EthernetPacket pkt) {
+        int ethPayloadLength = pkt.length();
+        if (ethPayloadLength < PCAPDROID_TRAILER_SIZE) {
+            Log.w(TAG, "Packet too short to contain trailer");
+            return;
+        }
+
+        byte[] trailer = Arrays.copyOfRange(pkt.getRawData(), ethPayloadLength - PCAPDROID_TRAILER_SIZE, ethPayloadLength - FCS_SIZE);
+
+        ByteBuffer trailerBuffer = ByteBuffer.wrap(trailer);
+
+        int magic = trailerBuffer.getInt(0);
+        int uid = trailerBuffer.getInt(4);
+        byte[] appNameBytes = new byte[20];
+        trailerBuffer.position(8);
+        trailerBuffer.get(appNameBytes, 0, 20);
+        String appName = new String(appNameBytes, StandardCharsets.UTF_8).trim();
+
+        if (magic != PCAPDROID_MAGIC) {
+            Log.w(TAG, "Invalid magic number: " + Integer.toHexString(magic));
+            return;
+        }
+
+        if (pkt.getPayload() instanceof IpV4Packet) {
+            IpV4Packet ipV4Packet = (IpV4Packet) pkt.getPayload();
+            IpV4Packet.IpV4Header hdr = ipV4Packet.getHeader();
+            mLog.append(String.format("[%s] %s -> %s [%d B] (App: %s, UID: %d)\n",
+                    hdr.getProtocol(),
+                    hdr.getSrcAddr().getHostAddress(), hdr.getDstAddr().getHostAddress(),
+                    ipV4Packet.length(), appName, uid));
+        } else {
+            Log.w(TAG, "Received non-IPv4 packet");
+        }
     }
 
     void queryCaptureStatus() {
@@ -112,6 +158,7 @@ public class MainActivity extends AppCompatActivity implements Observer {
         intent.putExtra("pcap_dump_mode", "udp_exporter");
         intent.putExtra("collector_ip_address", "127.0.0.1");
         intent.putExtra("collector_port", "5123");
+        intent.putExtra("pcapdroid_trailer", "true");
         //intent.putExtra("app_filter", "org.mozilla.firefox");
 
         captureStartLauncher.launch(intent);
