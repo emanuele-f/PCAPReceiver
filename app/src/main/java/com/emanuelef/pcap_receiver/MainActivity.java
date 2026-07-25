@@ -8,8 +8,11 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -24,10 +27,13 @@ import java.util.Observable;
 import java.util.Observer;
 
 public class MainActivity extends AppCompatActivity implements Observer {
-    static final String PCAPDROID_PACKAGE = "com.emanuelef.remote_capture"; // add ".debug" for the debug build of PCAPdroid
+    static final String PCAPDROID_PACKAGE = "com.emanuelef.remote_capture";
+    static final String PCAPDROID_DEBUG_SUFFIX = ".debug"; // the debug build of PCAPdroid uses a different package name
     static final String CAPTURE_CTRL_ACTIVITY = "com.emanuelef.remote_capture.activities.CaptureCtrl";
     static final String CAPTURE_STATUS_ACTION = "com.emanuelef.remote_capture.CaptureStatus";
     static final String TAG = "PCAP Receiver";
+    private static final String PREFS_NAME = "pcap_receiver";
+    private static final String PREF_USE_DEBUG_BUILD = "use_debug_pcapdroid";
     private static final int PCAPDROID_TRAILER_SIZE = 32;
     private static final int PCAPDROID_MAGIC = 0x01072021;
     private static final int FCS_SIZE = 4;
@@ -35,7 +41,9 @@ public class MainActivity extends AppCompatActivity implements Observer {
     Button mStart;
     CaptureThread mCapThread;
     TextView mLog;
+    TextView mTargetPackage;
     boolean mCaptureRunning = false;
+    boolean mUseDebugBuild = false;
 
     private final ActivityResultLauncher<Intent> captureStartLauncher =
             registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), this::handleCaptureStartResult);
@@ -50,6 +58,7 @@ public class MainActivity extends AppCompatActivity implements Observer {
         setContentView(R.layout.activity_main);
 
         mLog = findViewById(R.id.pkts_log);
+        mTargetPackage = findViewById(R.id.target_package);
         mStart = findViewById(R.id.start_btn);
         mStart.setOnClickListener(v -> {
             if(!mCaptureRunning)
@@ -57,6 +66,9 @@ public class MainActivity extends AppCompatActivity implements Observer {
             else
                 stopCapture();
         });
+
+        mUseDebugBuild = getPreferences().getBoolean(PREF_USE_DEBUG_BUILD, false);
+        updateTargetPackage();
 
         if((savedInstanceState != null) && savedInstanceState.containsKey("capture_running"))
             setCaptureRunning(savedInstanceState.getBoolean("capture_running"));
@@ -85,6 +97,47 @@ public class MainActivity extends AppCompatActivity implements Observer {
     protected void onSaveInstanceState(@NonNull Bundle bundle) {
         bundle.putBoolean("capture_running", mCaptureRunning);
         super.onSaveInstanceState(bundle);
+    }
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        getMenuInflater().inflate(R.menu.main_menu, menu);
+        menu.findItem(R.id.use_debug_pcapdroid).setChecked(mUseDebugBuild);
+        return true;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(@NonNull MenuItem item) {
+        if(item.getItemId() == R.id.use_debug_pcapdroid) {
+            setUseDebugBuild(!mUseDebugBuild);
+            item.setChecked(mUseDebugBuild);
+            return true;
+        }
+
+        return super.onOptionsItemSelected(item);
+    }
+
+    SharedPreferences getPreferences() {
+        return getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+    }
+
+    /** The package name of the PCAPdroid build to control. */
+    String getPcapdroidPackage() {
+        return mUseDebugBuild ? (PCAPDROID_PACKAGE + PCAPDROID_DEBUG_SUFFIX) : PCAPDROID_PACKAGE;
+    }
+
+    void setUseDebugBuild(boolean useDebugBuild) {
+        mUseDebugBuild = useDebugBuild;
+        getPreferences().edit().putBoolean(PREF_USE_DEBUG_BUILD, useDebugBuild).apply();
+        updateTargetPackage();
+
+        // The running capture, if any, belongs to the other build, so query the status of the new one
+        setCaptureRunning(false);
+        queryCaptureStatus();
+    }
+
+    void updateTargetPackage() {
+        mTargetPackage.setText(getString(R.string.target_package, getPcapdroidPackage()));
     }
 
     /**
@@ -133,25 +186,29 @@ public class MainActivity extends AppCompatActivity implements Observer {
         }
     }
 
+    void launchPcapdroid(ActivityResultLauncher<Intent> launcher, Intent intent) {
+        try {
+            launcher.launch(intent);
+        } catch (ActivityNotFoundException e) {
+            Toast.makeText(this, "PCAPdroid package not found: " + getPcapdroidPackage(), Toast.LENGTH_LONG).show();
+        }
+    }
+
     void queryCaptureStatus() {
         Log.d(TAG, "Querying PCAPdroid");
 
         Intent intent = new Intent(Intent.ACTION_VIEW);
-        intent.setClassName(PCAPDROID_PACKAGE, CAPTURE_CTRL_ACTIVITY);
+        intent.setClassName(getPcapdroidPackage(), CAPTURE_CTRL_ACTIVITY);
         intent.putExtra("action", "get_status");
 
-        try {
-            captureStatusLauncher.launch(intent);
-        } catch (ActivityNotFoundException e) {
-            Toast.makeText(this, "PCAPdroid package not found: " + PCAPDROID_PACKAGE, Toast.LENGTH_LONG).show();
-        }
+        launchPcapdroid(captureStatusLauncher, intent);
     }
 
     void startCapture() {
         Log.d(TAG, "Starting PCAPdroid");
 
         Intent intent = new Intent(Intent.ACTION_VIEW);
-        intent.setClassName(PCAPDROID_PACKAGE, CAPTURE_CTRL_ACTIVITY);
+        intent.setClassName(getPcapdroidPackage(), CAPTURE_CTRL_ACTIVITY);
 
         intent.putExtra("action", "start");
         intent.putExtra("broadcast_receiver", "com.emanuelef.pcap_receiver.MyBroadcastReceiver");
@@ -161,17 +218,17 @@ public class MainActivity extends AppCompatActivity implements Observer {
         intent.putExtra("pcapdroid_trailer", "true");
         //intent.putExtra("app_filter", "org.mozilla.firefox");
 
-        captureStartLauncher.launch(intent);
+        launchPcapdroid(captureStartLauncher, intent);
     }
 
     void stopCapture() {
         Log.d(TAG, "Stopping PCAPdroid");
 
         Intent intent = new Intent(Intent.ACTION_VIEW);
-        intent.setClassName(PCAPDROID_PACKAGE, CAPTURE_CTRL_ACTIVITY);
+        intent.setClassName(getPcapdroidPackage(), CAPTURE_CTRL_ACTIVITY);
         intent.putExtra("action", "stop");
 
-        captureStopLauncher.launch(intent);
+        launchPcapdroid(captureStopLauncher, intent);
     }
 
     void setCaptureRunning(boolean running) {

@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">PCAP Receiver</string>
+    <string name="use_debug_pcapdroid">Use PCAPdroid debug build</string>
+    <string name="target_package">Target: %s</string>
 </resources>

@@ -5,7 +5,7 @@ A sample app to show how to receive packets via [PCAPdroid](https://github.com/e
 <img src="https://raw.githubusercontent.com/emanuele-f/PCAPReceiver/master/screenshots/app.png" width="190" />
 </p>
 
-*NOTE*: if you are using a debug build of PCAPdroid, ensure to add `.debug` to the `PCAPDROID_PACKAGE` constraint, otherwise the PCAPdroid app won't be found.
+*NOTE*: if you are using a debug build of PCAPdroid, enable *Use PCAPdroid debug build* from the app menu to target the `.debug` package, otherwise the PCAPdroid app won't be found.
 
 Relevant sources:
  - [MainActivity.java](https://github.com/emanuele-f/PCAPReceiver/blob/master/app/src/main/java/com/emanuelef/pcap_receiver/MainActivity.java) - code to start/stop the capture
